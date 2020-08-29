@@ -381,18 +381,29 @@ func getMessage(c echo.Context) error {
 		return err
 	}
 
-	messages, err := queryMessages(chanID, lastID)
-	if err != nil {
-		return err
+	type MessageWithUser struct {
+		ID              int64     `db:"id"`
+		Content         string    `db:"content"`
+		CreatedAt       time.Time `db:"created_at"`
+		UserName        string    `db:"name"`
+		UserDisplayName string    `db:"display_name"`
+		UserAvatarIcon  string    `db:"avatar_icon"`
 	}
+	messages := []MessageWithUser{}
+	err = db.Select(&messages, "select m.id, m.content, m.created_at, u.name, u.display_name, u.avatar_icon from message m inner join user u on u.id = m.user_id where m.id > ? and m.channel_id = ? order by m.id desc limit 100", lastID, chanID)
 
 	response := make([]map[string]interface{}, 0)
 	for i := len(messages) - 1; i >= 0; i-- {
 		m := messages[i]
-		r, err := jsonifyMessage(m)
-		if err != nil {
-			return err
+		r := make(map[string]interface{})
+		r["id"] = m.ID
+		r["user"] = User{
+			Name:        m.UserName,
+			DisplayName: m.UserDisplayName,
+			AvatarIcon:  m.UserAvatarIcon,
 		}
+		r["date"] = m.CreatedAt.Format("2006/01/02 15:04:05")
+		r["content"] = m.Content
 		response = append(response, r)
 	}
 
@@ -449,7 +460,7 @@ func fetchUnread(c echo.Context) error {
 		return err
 	}
 
-	resp := make([]map[string]interface{},0,len(channels))
+	resp := make([]map[string]interface{}, 0, len(channels))
 	for _, chID := range channels {
 		lastID, err := queryHaveRead(userID, chID)
 		if err != nil {
