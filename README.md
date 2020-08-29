@@ -1,5 +1,6 @@
 ISUCON7 予選問題
 ====
+team-yagyu
 
 [予選マニュアル](https://gist.github.com/941/8c64842b71995a2d448315e2594f62c2)
 
