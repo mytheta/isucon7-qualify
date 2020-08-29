@@ -447,6 +447,63 @@ func queryHaveRead(userID, chID int64) (int64, error) {
 	return h.MessageID, nil
 }
 
+const unreadQuery = `
+select
+	m.channel_id,
+	count(1) as count
+from
+	message as m
+inner join
+	channel c
+on
+	m.channel_id = c.id
+left join
+	haveread as h
+on
+	h.user_id = ?
+	and h.channel_id = m.channel_id
+where
+	if(h.message_id is null, true, m.id > h.message_id)
+group by
+	1
+`
+
+type unReadNum struct {
+	ChannelID int64 `db:"channel_id"`
+	Count     int   `db:"count"`
+}
+
+func fetchUnreadV2(c echo.Context) error {
+	// 未読件数は一気に取ってくる
+	userID := sessUserID(c)
+	if userID == 0 {
+		return c.NoContent(http.StatusForbidden)
+	}
+
+	var res []unReadNum
+
+	err := db.Select(
+		&res,
+		unreadQuery,
+		userID,
+	)
+	if err == sql.ErrNoRows {
+		return c.JSON(http.StatusOK, []map[string]interface{}{})
+	} else if err != nil {
+		return err
+	}
+
+	ret := make([]map[string]interface{}, len(res))
+	for i, r := range res {
+		ret[i] = map[string]interface{}{
+			"channel_id": r.ChannelID,
+			"unread":     r.Count,
+		}
+	}
+
+	return c.JSON(http.StatusOK, res)
+}
+
 func fetchUnread(c echo.Context) error {
 	userID := sessUserID(c)
 	if userID == 0 {
@@ -756,7 +813,7 @@ func main() {
 	e.GET("/channel/:channel_id", getChannel)
 	e.GET("/message", getMessage)
 	e.POST("/message", postMessage)
-	e.GET("/fetch", fetchUnread)
+	e.GET("/fetch", fetchUnreadV2)
 	e.GET("/history/:channel_id", getHistory)
 
 	e.GET("/profile/:user_name", getProfile)
