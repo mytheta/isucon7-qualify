@@ -449,8 +449,7 @@ func fetchUnread(c echo.Context) error {
 		return err
 	}
 
-	resp := []map[string]interface{}{}
-
+	resp := make([]map[string]interface{},0,len(channels))
 	for _, chID := range channels {
 		lastID, err := queryHaveRead(userID, chID)
 		if err != nil {
