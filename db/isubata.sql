@@ -41,4 +41,4 @@ CREATE TABLE haveread (
 
 CREATE INDEX channel_id_to_id ON `message`(channel_id,id);
 CREATE INDEX channel_id ON `message`(channel_id);
-CREATE INDEX id_channel_id ON `message`(id,channel_id);
+
