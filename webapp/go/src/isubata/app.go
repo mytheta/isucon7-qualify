@@ -350,19 +350,29 @@ func postMessage(c echo.Context) error {
 	return c.NoContent(204)
 }
 
-func jsonifyMessage(m Message) (map[string]interface{}, error) {
-	u := User{}
-	err := db.Get(&u, "SELECT name, display_name, avatar_icon FROM user WHERE id = ?",
-		m.UserID)
+func jsonifyMessage(m []Message) ([]map[string]interface{}, error) {
+	u := []User{}
+	userIds := make([]string, 0, len(m))
+	for _, message := range m {
+		convertedInt64 := strconv.FormatInt(message.UserID, 10)
+		userIds = append(userIds, convertedInt64)
+	}
+	err := db.Get(&u, "SELECT name, display_name, avatar_icon FROM user WHERE id IN("+strings.Join(userIds, ",")+" )",
+	)
 	if err != nil {
 		return nil, err
 	}
-
-	r := make(map[string]interface{})
-	r["id"] = m.ID
-	r["user"] = u
-	r["date"] = m.CreatedAt.Format("2006/01/02 15:04:05")
-	r["content"] = m.Content
+	r := make([]map[string]interface{}, len(u))
+	for _, message := range m {
+		var tmp map[string]interface{}
+		for _, user := range u {
+			tmp["id"] = message.ID
+			tmp["user"] = user
+			tmp["date"] = message.CreatedAt.Format("2006/01/02 15:04:05")
+			tmp["content"] = message.Content
+		}
+		r = append(r, tmp)
+	}
 	return r, nil
 }
 
@@ -386,14 +396,9 @@ func getMessage(c echo.Context) error {
 		return err
 	}
 
-	response := make([]map[string]interface{}, 0)
-	for i := len(messages) - 1; i >= 0; i-- {
-		m := messages[i]
-		r, err := jsonifyMessage(m)
-		if err != nil {
-			return err
-		}
-		response = append(response, r)
+	response, err := jsonifyMessage(messages)
+	if err != nil {
+		return err
 	}
 
 	if len(messages) > 0 {
@@ -449,7 +454,7 @@ func fetchUnread(c echo.Context) error {
 		return err
 	}
 
-	resp := make([]map[string]interface{},0,len(channels))
+	resp := make([]map[string]interface{}, 0, len(channels))
 	for _, chID := range channels {
 		lastID, err := queryHaveRead(userID, chID)
 		if err != nil {
@@ -522,13 +527,9 @@ func getHistory(c echo.Context) error {
 		return err
 	}
 
-	mjson := make([]map[string]interface{}, 0)
-	for i := len(messages) - 1; i >= 0; i-- {
-		r, err := jsonifyMessage(messages[i])
-		if err != nil {
-			return err
-		}
-		mjson = append(mjson, r)
+	r, err := jsonifyMessage(messages)
+	if err != nil {
+		return err
 	}
 
 	channels := []ChannelInfo{}
@@ -540,7 +541,7 @@ func getHistory(c echo.Context) error {
 	return c.Render(http.StatusOK, "history", map[string]interface{}{
 		"ChannelID": chID,
 		"Channels":  channels,
-		"Messages":  mjson,
+		"Messages":  r,
 		"MaxPage":   maxPage,
 		"Page":      page,
 		"User":      user,
