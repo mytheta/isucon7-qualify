@@ -17,12 +17,13 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/profiler"
 	"github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
-	"github.com/labstack/echo"
 	"github.com/labstack/echo-contrib/session"
-	"github.com/labstack/echo/middleware"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 )
 
 const (
@@ -788,6 +789,8 @@ func tRange(a, b int64) []int64 {
 }
 
 func main() {
+	setStackDriverProfiler()
+
 	e := echo.New()
 	funcs := template.FuncMap{
 		"add":    tAdd,
@@ -824,4 +827,17 @@ func main() {
 	e.GET("/icons/:file_name", getIcon)
 
 	e.Start(":5000")
+}
+
+//setStackDriverProfiler is set stackdriver profiler
+func setStackDriverProfiler() {
+	// Profiler initialization, best done as early as possible.
+	if err := profiler.Start(profiler.Config{
+		Service:        "isucon7",
+		ServiceVersion: "1.0.0",
+		//ProjectID must be set if not running on GCP.
+		ProjectID: os.Getenv("GCP_ID"),
+	}); err != nil {
+		log.Fatalf("pprof is failed. caz %s", err)
+	}
 }
