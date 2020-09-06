@@ -1,13 +1,16 @@
 package session
 
 import (
+	"fmt"
+
+	"github.com/gorilla/context"
 	"github.com/gorilla/sessions"
-	"github.com/labstack/echo"
-	"github.com/labstack/echo/middleware"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 )
 
 type (
-	// Config defines the config for CasbinAuth middleware.
+	// Config defines the config for Session middleware.
 	Config struct {
 		// Skipper defines a function to skip middleware.
 		Skipper middleware.Skipper
@@ -31,7 +34,11 @@ var (
 
 // Get returns a named session.
 func Get(name string, c echo.Context) (*sessions.Session, error) {
-	store := c.Get(key).(sessions.Store)
+	s := c.Get(key)
+	if s == nil {
+		return nil, fmt.Errorf("%q session not found", name)
+	}
+	store := s.(sessions.Store)
 	return store.Get(c.Request(), name)
 }
 
@@ -58,6 +65,7 @@ func MiddlewareWithConfig(config Config) echo.MiddlewareFunc {
 			if config.Skipper(c) {
 				return next(c)
 			}
+			defer context.Clear(c.Request())
 			c.Set(key, config.Store)
 			return next(c)
 		}
