@@ -789,6 +789,7 @@ func tRange(a, b int64) []int64 {
 }
 
 func main() {
+	fmt.Println("start profile")
 	setStackDriverProfiler()
 
 	e := echo.New()
